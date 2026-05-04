@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow access to subcollections under the user document
+      match /tools/{toolName} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Survey Hub Rules
+    match /tools/surveyHub/{userId}/{surveyId} {
+      allow read: if true; // Public needs to read survey definition
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /tools/surveyResponses/{surveyId}/{responseId} {
+      allow read: if request.auth != null; // Owner check logic
+      allow create: if true; // Public can submit
+    }
+
+    // What's New Updates
+    match /updates/{updateId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Affiliate Ads
+    match /affiliateAds/{adId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
