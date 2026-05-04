@@ -37,8 +37,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Run Cache Buster
-        run: node cache-buster.js
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
