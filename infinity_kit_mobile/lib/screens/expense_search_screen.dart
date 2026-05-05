@@ -53,9 +53,9 @@ class _ExpenseSearchScreenState extends State<ExpenseSearchScreen> {
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: ListTile(
-                        title: Text(data['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(data['title'] ?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(data['category'] ?? 'General'),
-                        trailing: Text('₹${data['amount']}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        trailing: Text('₹${data['amount'] ?? '0.00'}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                       ),
                     );
                   },

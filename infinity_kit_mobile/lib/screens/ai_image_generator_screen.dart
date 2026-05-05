@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/ai_service.dart';
 import '../utils/theme.dart';
 
@@ -22,6 +26,47 @@ class _AiImageGeneratorScreenState extends State<AiImageGeneratorScreen> {
       _isLoading = true;
       _imageUrl = AiService.getImageUrl(prompt);
     });
+  }
+
+  Future<void> _saveImage() async {
+    if (_imageUrl == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) await Gal.requestAccess();
+      
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/ai_art_${DateTime.now().millisecondsSinceEpoch}.png';
+      await Dio().download(_imageUrl!, path);
+      
+      await Gal.putImage(path);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image saved to gallery!')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save image: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _shareImage() async {
+    if (_imageUrl == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/shared_art.png';
+      await Dio().download(_imageUrl!, path);
+      
+      await SharePlus.instance.share(
+        ShareParams(
+          text: 'Check out this AI Art I generated with Infinity Kit!',
+          files: [XFile(path)],
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to share image: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -101,17 +146,13 @@ class _AiImageGeneratorScreenState extends State<AiImageGeneratorScreen> {
                   TextButton.icon(
                     icon: const Icon(Icons.download),
                     label: const Text('Save to Gallery'),
-                    onPressed: () {
-                      // Save logic
-                    },
+                    onPressed: _isLoading ? null : _saveImage,
                   ),
                   const SizedBox(width: 20),
                   TextButton.icon(
                     icon: const Icon(Icons.share),
                     label: const Text('Share Art'),
-                    onPressed: () {
-                      // Share logic
-                    },
+                    onPressed: _isLoading ? null : _shareImage,
                   ),
                 ],
               ),

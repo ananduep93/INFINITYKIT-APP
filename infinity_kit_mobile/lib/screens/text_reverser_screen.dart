@@ -23,56 +23,58 @@ class _TextReverserScreenState extends State<TextReverserScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('🔄 Text Reverser')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _inputController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Input Text',
-                hintText: 'Enter text to reverse',
-                border: OutlineInputBorder(),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              TextField(
+                controller: _inputController,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'Input Text',
+                  hintText: 'Enter text to reverse',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => _reverseText(),
               ),
-              onChanged: (_) => _reverseText(),
-            ),
-            const SizedBox(height: 20),
-            const Icon(Icons.swap_vert, color: AppTheme.primaryColor, size: 32),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _outputController,
-              maxLines: 5,
-              readOnly: true,
-              decoration: InputDecoration(
-                labelText: 'Reversed Text',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.copy),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: _outputController.text));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Copied to clipboard!')),
-                    );
-                  },
+              const SizedBox(height: 20),
+              const Icon(Icons.swap_vert, color: AppTheme.primaryColor, size: 32),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _outputController,
+                maxLines: 5,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Reversed Text',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.copy),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: _outputController.text));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard!')),
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                _inputController.clear();
-                _outputController.clear();
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.grey[100],
-                foregroundColor: Colors.black87,
-                elevation: 0,
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  _inputController.clear();
+                  _outputController.clear();
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Colors.grey[100],
+                  foregroundColor: Colors.black87,
+                  elevation: 0,
+                ),
+                child: const Text('Clear'),
               ),
-              child: const Text('Clear'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

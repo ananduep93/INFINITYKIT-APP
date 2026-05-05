@@ -25,9 +25,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         .doc(user.uid)
         .collection('expenses')
         .add({
+      'title': _noteController.text.trim().isEmpty ? 'Untitled' : _noteController.text.trim(),
       'amount': double.parse(_amountController.text),
       'category': _selectedCategory,
-      'note': _noteController.text.trim(),
       'date': FieldValue.serverTimestamp(),
     });
 
@@ -52,7 +52,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               textAlign: TextAlign.center,
               decoration: const InputDecoration(
                 hintText: '0.00',
-                prefixText: '\$ ',
+                prefixText: '₹ ',
                 border: InputBorder.none,
               ),
             ),
@@ -70,7 +70,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             TextField(
               controller: _noteController,
               decoration: InputDecoration(
-                labelText: 'Note (Optional)',
+                labelText: 'Title (e.g. Lunch)',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),

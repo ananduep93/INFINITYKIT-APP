@@ -5,6 +5,7 @@ import '../models/tool_models.dart';
 import '../utils/theme.dart';
 import 'category_detail_screen.dart';
 import 'settings_screen.dart';
+import '../utils/navigation.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -59,6 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeContent() {
+    final filteredTools = ToolDataService.tools.where((tool) {
+      final nameMatch = tool.name.toLowerCase().contains(searchQuery.toLowerCase());
+      final descMatch = tool.description.toLowerCase().contains(searchQuery.toLowerCase());
+      return nameMatch || descMatch;
+    }).toList();
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -67,13 +74,37 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildSearchBar(),
           const SizedBox(height: 24),
           Text(
-            'Categories',
+            searchQuery.isEmpty ? 'Categories' : 'Search Results',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: _buildCategoryGrid(),
+            child: searchQuery.isEmpty
+                ? _buildCategoryGrid()
+                : filteredTools.isEmpty
+                    ? _buildNoResults()
+                    : ListView.builder(
+                        itemCount: filteredTools.length,
+                        itemBuilder: (context, index) {
+                          return _buildPersistentToolCard(filteredTools[index]);
+                        },
+                      ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoResults() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 80, color: AppTheme.primaryColor.withValues(alpha: 0.1)),
+          const SizedBox(height: 16),
+          const Text('No tools found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 8),
+          Text('Try searching for something else', style: TextStyle(color: AppTheme.subtitleColor)),
         ],
       ),
     );
@@ -156,12 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
           HapticFeedback.lightImpact();
           await ToolDataService.addToRecent(tool.id);
           if (mounted) {
-             // Find category to navigate or just navigate to tool
-             final category = ToolDataService.categories.firstWhere((c) => c.id == tool.categoryId);
-             Navigator.push(context, MaterialPageRoute(builder: (context) => CategoryDetailScreen(category: category)));
-             // Actually, we should navigate directly to the tool. 
-             // But the logic is in CategoryDetailScreen. 
-             // We can refactor navigation later. For now, this works.
+            ToolNavigation.navigateToTool(context, tool);
           }
         },
       ),

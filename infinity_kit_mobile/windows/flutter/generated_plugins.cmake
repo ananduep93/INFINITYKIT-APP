@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   firebase_storage
   flutter_tts
+  gal
   pdfx
   share_plus
   url_launcher_windows

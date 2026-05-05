@@ -18,42 +18,47 @@ class AiService {
 
       switch (type) {
         case 'chat':
-          systemPrompt = "You are Infinity AI, a brilliant and friendly assistant. Use emojis where appropriate.";
+          systemPrompt = "You are Infinity AI, a brilliant, helpful, and friendly assistant. Provide direct, informative answers. Use markdown tables and lists for clarity when appropriate, but DO NOT use '---' as a separator. Be concise and professional.";
           final historyString = context != null 
-              ? context.map((m) => "${m['role']?.toUpperCase()}: ${m['content']}").join('\n') 
+              ? context.take(4).map((m) => "${m['role']?.toUpperCase()}: ${m['content']}").join('\n') 
               : "";
-          userPrompt = "$historyString\nUSER: $message\nINFINITY AI:";
+          userPrompt = "$historyString\nUSER: $message\nASSISTANT:";
           break;
         case 'improve':
-          systemPrompt = "You are a world-class editor. Rewrite the following text to make it sound professional, persuasive, and elegant. Keep the meaning but elevate the vocabulary.";
+          systemPrompt = "You are a world-class editor. Rewrite the following text to make it sound professional and elegant. Provide only the improved text.";
           userPrompt = text ?? "";
           break;
         case 'summarize':
-          systemPrompt = "You are an expert at information density. Summarize the text using clear bullet points. Include a 'Key Takeaway' at the end.";
+          systemPrompt = "Summarize the following text using clear, concise bullet points.";
           userPrompt = text ?? "";
           break;
         case 'code':
-          systemPrompt = "You are a senior software engineer. Explain, fix, or optimize the following code. Provide clear explanations and clean code blocks.";
-          userPrompt = text ?? "";
+          systemPrompt = "You are a senior software engineer. Explain the following code in detail, breaking down what each part does. If there are errors, suggest fixes. Use markdown code blocks.";
+          userPrompt = "Please explain this code:\n\n$text";
           break;
         case 'translate':
-          systemPrompt = "You are a professional translator. Translate the following text accurately while preserving tone and context.";
+          systemPrompt = "Translate the following text accurately. Provide only the translated result.";
           userPrompt = text ?? "";
           break;
         default:
           userPrompt = text ?? message ?? "";
       }
 
-      final url = Uri.parse('$_textBaseUrl${Uri.encodeComponent(userPrompt)}?system=${Uri.encodeComponent(systemPrompt)}&model=openai');
-      final response = await http.get(url);
+      if (userPrompt.trim().isEmpty) {
+        return "Please provide more text for the AI to process.";
+      }
 
-      if (response.statusCode == 200) {
+      final url = Uri.parse('$_textBaseUrl${Uri.encodeComponent(userPrompt)}?system=${Uri.encodeComponent(systemPrompt)}&model=openai');
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
         return response.body;
       } else {
+        debugPrint('AI Status Error: ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
-      debugPrint('AI Error: $e');
+      debugPrint('AI Exception: $e');
       return null;
     }
   }

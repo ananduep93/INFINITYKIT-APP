@@ -8,11 +8,14 @@ class AuthService extends ChangeNotifier {
 
   User? _user;
   User? get user => _user;
+  bool _initialized = false;
+  bool get initialized => _initialized;
 
   AuthService() {
     _initialize();
     _auth.authStateChanges().listen((User? user) {
       _user = user;
+      _initialized = true;
       notifyListeners();
     });
   }

@@ -35,8 +35,8 @@ class ExpenseListScreen extends StatelessWidget {
                     backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                     child: const Icon(Icons.money_off, color: AppTheme.primaryColor),
                   ),
-                  title: Text(data['category'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(data['note'] ?? ''),
+                  title: Text(data['title'] ?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(data['category'] ?? 'General'),
                   trailing: Text(
                     '-₹ ${data['amount']}',
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),

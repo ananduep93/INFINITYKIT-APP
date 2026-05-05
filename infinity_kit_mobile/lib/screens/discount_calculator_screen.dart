@@ -34,7 +34,7 @@ class _DiscountCalculatorScreenState extends State<DiscountCalculatorScreen> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            _buildInput('Original Price', _priceController, Icons.attach_money),
+            _buildInput('Original Price', _priceController, Icons.currency_rupee),
             const SizedBox(height: 16),
             _buildInput('Discount (%)', _discountController, Icons.percent),
             const SizedBox(height: 30),
@@ -45,9 +45,9 @@ class _DiscountCalculatorScreenState extends State<DiscountCalculatorScreen> {
             ),
             const SizedBox(height: 40),
             if (_finalPrice > 0) ...[
-              _buildResultCard('You Save', '\$ \${_savings.toStringAsFixed(2)}', Colors.green),
+              _buildResultCard('You Save', '₹ ${_savings.toStringAsFixed(2)}', Colors.green),
               const SizedBox(height: 16),
-              _buildResultCard('Final Price', '\$ \${_finalPrice.toStringAsFixed(2)}', AppTheme.primaryColor),
+              _buildResultCard('Final Price', '₹ ${_finalPrice.toStringAsFixed(2)}', AppTheme.primaryColor),
             ],
           ],
         ),

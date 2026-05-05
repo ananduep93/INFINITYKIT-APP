@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/ai_service.dart';
 import '../utils/theme.dart';
 
@@ -102,9 +103,12 @@ class _AiChatbotScreenState extends State<AiChatbotScreen> {
             bottomRight: Radius.circular(isAi ? 15 : 0),
           ),
         ),
-        child: Text(
-          content,
-          style: TextStyle(color: isAi ? Colors.black87 : Colors.white),
+        child: MarkdownBody(
+          data: content,
+          styleSheet: MarkdownStyleSheet(
+            p: TextStyle(color: isAi ? Colors.black87 : Colors.white),
+            listBullet: TextStyle(color: isAi ? Colors.black87 : Colors.white),
+          ),
         ),
       ),
     );

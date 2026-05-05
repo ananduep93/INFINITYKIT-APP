@@ -76,11 +76,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showSplash) {
+    final authService = Provider.of<AuthService>(context);
+
+    if (_showSplash || !authService.initialized) {
       return const SplashScreen();
     }
-
-    final authService = Provider.of<AuthService>(context);
     
     // Check if user is logged in
     if (authService.user != null) {

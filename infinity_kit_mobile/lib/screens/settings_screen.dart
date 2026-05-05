@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../utils/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'privacy_policy_screen.dart';
+import 'edit_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -55,8 +56,9 @@ class SettingsScreen extends StatelessWidget {
           
           // Account Settings
           _buildSectionTitle('Account'),
-          _buildListTile(Icons.person_outline, 'Edit Profile', () {}),
-          _buildListTile(Icons.lock_outline, 'Change Password', () {}),
+          _buildListTile(Icons.person_outline, 'Edit Profile', () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfileScreen()));
+          }),
           
           const SizedBox(height: 20),
           
@@ -68,7 +70,9 @@ class SettingsScreen extends StatelessWidget {
           _buildListTile(Icons.description_outlined, 'Terms of Service', () {
             _launchUrl('https://infinitykit.app/terms');
           }),
-          _buildListTile(Icons.info_outline, 'About Infinity Kit', () {}),
+          _buildListTile(Icons.info_outline, 'About Infinity Kit', () {
+            _launchUrl('https://infinitykit.app');
+          }),
           
           const SizedBox(height: 40),
           

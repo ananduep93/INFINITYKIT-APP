@@ -36,7 +36,7 @@ class _NamePickerScreenState extends State<NamePickerScreen> {
             ElevatedButton(onPressed: _pick, child: const Text('Pick a Random Name')),
             const SizedBox(height: 40),
             if (_winner.isNotEmpty)
-              Text('Winner: \$_winner', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text('Winner: $_winner', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
           ],
         ),
       ),

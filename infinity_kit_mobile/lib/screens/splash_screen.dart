@@ -86,14 +86,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'POWERED BY AI',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.7),
-                    letterSpacing: 2,
-                  ),
-                ),
               ],
             ),
             

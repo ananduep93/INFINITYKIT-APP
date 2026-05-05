@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/ai_service.dart';
 import '../utils/theme.dart';
 
@@ -106,9 +107,17 @@ class _AiTextToolsScreenState extends State<AiTextToolsScreen> {
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
                 ),
-                child: SelectableText(
-                  _output,
-                  style: const TextStyle(fontSize: 15, height: 1.5),
+                child: MarkdownBody(
+                  data: _output,
+                  selectable: true,
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(fontSize: 15, height: 1.5),
+                    code: TextStyle(backgroundColor: Colors.grey[200], fontFamily: 'monospace'),
+                    codeblockDecoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
             ],
