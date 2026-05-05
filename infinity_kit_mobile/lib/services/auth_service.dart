@@ -1,10 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'firestore_service.dart';
+import 'tool_data_service.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final FirestoreService _firestore = FirestoreService();
 
   User? _user;
   User? get user => _user;
@@ -13,11 +16,32 @@ class AuthService extends ChangeNotifier {
 
   AuthService() {
     _initialize();
-    _auth.authStateChanges().listen((User? user) {
+    _auth.authStateChanges().listen((User? user) async {
       _user = user;
+      if (user != null) {
+        await _syncWithFirestore();
+      }
       _initialized = true;
       notifyListeners();
     });
+  }
+
+  Future<void> _syncWithFirestore() async {
+    try {
+      await _firestore.syncUserData();
+      
+      // Sync favorites to ToolDataService
+      final favorites = await _firestore.getFavorites();
+      await ToolDataService.syncFromCloud(favorites);
+      
+      // Sync history
+      final history = await _firestore.getHistory();
+      await ToolDataService.syncHistoryFromCloud(history);
+      
+      debugPrint('Firestore sync completed for ${user?.uid}');
+    } catch (e) {
+      debugPrint('Firestore sync error: $e');
+    }
   }
 
   Future<void> _initialize() async {
@@ -30,34 +54,44 @@ class AuthService extends ChangeNotifier {
       final googleUser = await _googleSignIn.authenticate();
       
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
+      final AuthCredential authCredential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
         // In 2026, accessToken is obtained via authorizationClient if needed, 
         // but for Firebase Auth idToken is usually sufficient.
       );
 
-      return await _auth.signInWithCredential(credential);
+      UserCredential userCredential = await _auth.signInWithCredential(authCredential);
+      await _syncWithFirestore();
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        debugPrint('Account exists with different credential. Consider linking.');
+        // This is where you would prompt for password to link accounts
+      }
+      debugPrint('Google Sign-In Error: $e');
+      return null;
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
       return null;
     }
   }
 
-  // Email & Password Sign In
   Future<UserCredential?> signInWithEmail(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(email: email, password: password);
+      UserCredential credential = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await _syncWithFirestore();
+      return credential;
     } catch (e) {
       debugPrint('Email Sign-In Error: $e');
       rethrow;
     }
   }
 
-  // Email & Password Sign Up
   Future<UserCredential?> signUpWithEmail(String email, String password, String name) async {
     try {
       UserCredential credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       await credential.user?.updateDisplayName(name);
+      await _syncWithFirestore();
       return credential;
     } catch (e) {
       debugPrint('Email Sign-Up Error: $e');
