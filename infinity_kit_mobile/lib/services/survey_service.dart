@@ -37,7 +37,7 @@ class SurveyService {
     await _responsesRef(surveyId).add({
       'surveyId': surveyId,
       'answers': answers,
-      'submittedAt': FieldValue.serverTimestamp(),
+      'submittedAt': DateTime.now().toIso8601String(),
       'userId': _auth.currentUser?.uid ?? 'anonymous',
     });
   }

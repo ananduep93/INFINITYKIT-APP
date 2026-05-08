@@ -10,7 +10,29 @@ class FirestoreService {
   DocumentReference get userDoc => _db.collection('users').doc(_auth.currentUser?.uid);
   CollectionReference get favoritesColl => userDoc.collection('favorites');
   CollectionReference get historyColl => userDoc.collection('history');
+  CollectionReference get toolsColl => userDoc.collection('tools');
   DocumentReference get profileDoc => userDoc.collection('profile').doc('info');
+
+  // Generic Tool Data Sync (Matching Web structure)
+  Future<void> saveToolData(String toolName, dynamic data) async {
+    if (_auth.currentUser == null) return;
+    await toolsColl.doc(toolName).set({
+      'data': data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<dynamic> getToolData(String toolName) async {
+    if (_auth.currentUser == null) return null;
+    final doc = await toolsColl.doc(toolName).get();
+    if (!doc.exists) return null;
+    final data = doc.data() as Map<String, dynamic>?;
+    return data?['data'];
+  }
+
+  Stream<DocumentSnapshot> getToolDataStream(String toolName) {
+    return toolsColl.doc(toolName).snapshots();
+  }
 
   // Initialize/Sync User Data
   Future<void> syncUserData() async {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 import '../utils/theme.dart';
+import 'package:intl/intl.dart';
 
 class PasswordSaverScreen extends StatefulWidget {
   const PasswordSaverScreen({super.key});
@@ -11,56 +13,66 @@ class PasswordSaverScreen extends StatefulWidget {
 }
 
 class _PasswordSaverScreenState extends State<PasswordSaverScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   final User? _user = FirebaseAuth.instance.currentUser;
 
-  CollectionReference get _passwordsRef => _firestore
-      .collection('users')
-      .doc(_user?.uid)
-      .collection('passwords');
-
-  void _addOrEditPassword([String? id, Map<String, dynamic>? initialData]) {
-    final titleController = TextEditingController(text: initialData?['title']);
-    final usernameController = TextEditingController(text: initialData?['username']);
+  Future<void> _addOrEditPassword([int? index, Map<String, dynamic>? initialData]) async {
+    final titleController = TextEditingController(text: initialData?['appName']);
     final passwordController = TextEditingController(text: initialData?['password']);
     bool obscurePassword = true;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
+        builder: (context, setModalState) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
             top: 20, left: 20, right: 20,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('Save Password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              _buildField('Title (e.g. Facebook)', titleController),
-              _buildField('Username/Email', usernameController),
+              _buildField('Title (e.g. Gmail)', titleController),
               _buildField('Password', passwordController, isPassword: true, obscure: obscurePassword, onToggle: () {
                 setModalState(() => obscurePassword = !obscurePassword);
               }),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
-                  final data = {
-                    'title': titleController.text.trim(),
-                    'username': usernameController.text.trim(),
-                    'password': passwordController.text.trim(),
-                    'updatedAt': FieldValue.serverTimestamp(),
+                  final title = titleController.text.trim();
+                  final password = passwordController.text.trim();
+                  if (title.isEmpty || password.isEmpty) return;
+
+                  final currentData = await _firestoreService.getToolData('savedPasswords');
+                  List<dynamic> passwords = (currentData is List) ? List.from(currentData) : [];
+
+                  final newData = {
+                    'appName': title,
+                    'password': password,
+                    'date': DateFormat('dd/MM/yyyy, HH:mm:ss').format(DateTime.now()),
                   };
-                  if (id == null) {
-                    await _passwordsRef.add(data);
+
+                  if (index == null) {
+                    passwords.add(newData);
                   } else {
-                    await _passwordsRef.doc(id).update(data);
+                    passwords[index] = newData;
                   }
+
+                  await _firestoreService.saveToolData('savedPasswords', passwords);
                   if (context.mounted) Navigator.pop(context);
                 },
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: const Text('Save Credentials'),
               ),
               const SizedBox(height: 20),
@@ -88,31 +100,45 @@ class _PasswordSaverScreenState extends State<PasswordSaverScreen> {
     );
   }
 
+  Future<void> _deletePassword(int index) async {
+    final currentData = await _firestoreService.getToolData('savedPasswords');
+    if (currentData is List) {
+      List<dynamic> passwords = List.from(currentData);
+      passwords.removeAt(index);
+      await _firestoreService.saveToolData('savedPasswords', passwords);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_user == null) return const Scaffold(body: Center(child: Text('Please log in')));
+
     return Scaffold(
       appBar: AppBar(title: const Text('🔒 Password Saver')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _passwordsRef.snapshots(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestoreService.getToolDataStream('savedPasswords'),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('No passwords saved yet.'));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          final List<dynamic> passwords = (data != null && data['data'] is List) ? data['data'] : [];
+
+          if (passwords.isEmpty) return const Center(child: Text('No passwords saved yet.'));
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
+            itemCount: passwords.length,
             itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final pwd = passwords[index] as Map<String, dynamic>;
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: const Icon(Icons.security, color: AppTheme.primaryColor),
-                  title: Text(data['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(data['username']),
+                  title: Text(pwd['appName'] ?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(pwd['date'] ?? ''),
                   trailing: const Icon(Icons.edit, size: 18),
-                  onTap: () => _addOrEditPassword(doc.id, data),
+                  onTap: () => _addOrEditPassword(index, pwd),
                   onLongPress: () {
                     showDialog(
                       context: context,
@@ -120,7 +146,13 @@ class _PasswordSaverScreenState extends State<PasswordSaverScreen> {
                         title: const Text('Delete Credentials?'),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                          TextButton(onPressed: () { _passwordsRef.doc(doc.id).delete(); Navigator.pop(context); }, child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                          TextButton(
+                            onPressed: () async {
+                              await _deletePassword(index);
+                              if (context.mounted) Navigator.pop(context);
+                            },
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
                         ],
                       ),
                     );

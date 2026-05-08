@@ -83,7 +83,7 @@ class SettingsScreen extends StatelessWidget {
               onPressed: () async {
                 HapticFeedback.mediumImpact();
                 await authService.signOut();
-                if (context.mounted) Navigator.pop(context);
+                // Removed Navigator.pop as AuthWrapper handles the switch.
               },
               icon: const Icon(Icons.logout, color: Colors.white),
               label: const Text('Logout'),

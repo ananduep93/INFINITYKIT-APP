@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import '../services/firestore_service.dart';
+import 'package:intl/intl.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -13,23 +13,50 @@ class AddExpenseScreen extends StatefulWidget {
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _firestoreService = FirestoreService();
   String _selectedCategory = 'Food';
-  final List<String> _categories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Others'];
+  final List<String> _categories = [
+    'Food',
+    'Transport',
+    'Shopping',
+    'Bills',
+    'Health',
+    'Entertainment',
+    'Education',
+    'Travel',
+    'Other'
+  ];
 
   Future<void> _saveExpense() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _amountController.text.isEmpty) return;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('expenses')
-        .add({
-      'title': _noteController.text.trim().isEmpty ? 'Untitled' : _noteController.text.trim(),
-      'amount': double.parse(_amountController.text),
+    final double amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount <= 0) return;
+
+    final String note = _noteController.text.trim();
+    final String date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Fetch current DB
+    final currentData = await _firestoreService.getToolData('infinityKitExpenseDB');
+    Map<String, dynamic> db = (currentData is Map) ? Map<String, dynamic>.from(currentData) : {'expenses': [], 'budgets': {}};
+    
+    List<dynamic> expenses = List.from(db['expenses'] ?? []);
+    
+    // Create new expense object matching web structure
+    final newExpense = {
+      'id': '${DateTime.now().millisecondsSinceEpoch}${((999999 - 100000) * (DateTime.now().microsecond / 1000000)).toInt() + 100000}',
+      'amount': amount,
       'category': _selectedCategory,
-      'date': FieldValue.serverTimestamp(),
-    });
+      'date': date,
+      'note': note,
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+    };
+
+    expenses.add(newExpense);
+    db['expenses'] = expenses;
+
+    await _firestoreService.saveToolData('infinityKitExpenseDB', db);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Expense Added!')));
@@ -47,7 +74,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           children: [
             TextField(
               controller: _amountController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
               decoration: const InputDecoration(
@@ -70,14 +97,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             TextField(
               controller: _noteController,
               decoration: InputDecoration(
-                labelText: 'Title (e.g. Lunch)',
+                labelText: 'Note (e.g. Lunch)',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),
             const Spacer(),
             ElevatedButton(
               onPressed: _saveExpense,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 55)),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 55),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: const Text('Save Expense'),
             ),
             const SizedBox(height: 20),

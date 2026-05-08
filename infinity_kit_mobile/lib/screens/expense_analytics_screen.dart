@@ -2,33 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 
-class ExpenseAnalyticsScreen extends StatelessWidget {
+class ExpenseAnalyticsScreen extends StatefulWidget {
   const ExpenseAnalyticsScreen({super.key});
 
   @override
+  State<ExpenseAnalyticsScreen> createState() => _ExpenseAnalyticsScreenState();
+}
+
+class _ExpenseAnalyticsScreenState extends State<ExpenseAnalyticsScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Scaffold(body: Center(child: Text('Please log in')));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Expense Analytics')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(user?.uid)
-            .collection('expenses')
-            .snapshots(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestoreService.getToolDataStream('infinityKitExpenseDB'),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text('No data for analytics.'));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Simple data aggregation for Pie Chart
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          final List<dynamic> rawExpenses = (data != null && data['data'] is Map && data['data']['expenses'] is List) 
+              ? data['data']['expenses'] 
+              : [];
+          
+          final List<Map<String, dynamic>> expenses = rawExpenses.map((e) => Map<String, dynamic>.from(e)).toList();
+
+          if (expenses.isEmpty) {
+            return const Center(child: Text('No data for analytics.'));
+          }
+
+          // Data aggregation for Pie Chart
           Map<String, double> categoryData = {};
-          for (var doc in docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final cat = data['category'] ?? 'General';
-            final amt = (data['amount'] as num).toDouble();
+          for (var expense in expenses) {
+            final cat = expense['category'] ?? 'General';
+            final amt = (expense['amount'] as num).toDouble();
             categoryData[cat] = (categoryData[cat] ?? 0) + amt;
           }
 

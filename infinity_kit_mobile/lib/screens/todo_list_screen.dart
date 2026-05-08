@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 import '../utils/theme.dart';
 
 class ToDoListScreen extends StatefulWidget {
@@ -12,36 +13,49 @@ class ToDoListScreen extends StatefulWidget {
 
 class _ToDoListScreenState extends State<ToDoListScreen> {
   final TextEditingController _controller = TextEditingController();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   final User? _user = FirebaseAuth.instance.currentUser;
 
-  CollectionReference get _todoRef => _firestore
-      .collection('users')
-      .doc(_user?.uid)
-      .collection('todos');
-
-  void _addTodo() async {
-    if (_controller.text.trim().isEmpty) return;
+  Future<void> _addTodo() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
     
-    await _todoRef.add({
-      'text': _controller.text.trim(),
+    final currentData = await _firestoreService.getToolData('todos');
+    List<dynamic> todos = (currentData is List) ? List.from(currentData) : [];
+    
+    todos.add({
+      'text': text,
       'completed': false,
-      'createdAt': FieldValue.serverTimestamp(),
     });
     
+    await _firestoreService.saveToolData('todos', todos);
     _controller.clear();
   }
 
-  void _toggleTodo(String id, bool completed) {
-    _todoRef.doc(id).update({'completed': !completed});
+  Future<void> _toggleTodo(int index) async {
+    final currentData = await _firestoreService.getToolData('todos');
+    if (currentData is List) {
+      List<dynamic> todos = List.from(currentData);
+      final item = Map<String, dynamic>.from(todos[index]);
+      item['completed'] = !(item['completed'] ?? false);
+      todos[index] = item;
+      await _firestoreService.saveToolData('todos', todos);
+    }
   }
 
-  void _deleteTodo(String id) {
-    _todoRef.doc(id).delete();
+  Future<void> _deleteTodo(int index) async {
+    final currentData = await _firestoreService.getToolData('todos');
+    if (currentData is List) {
+      List<dynamic> todos = List.from(currentData);
+      todos.removeAt(index);
+      await _firestoreService.saveToolData('todos', todos);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_user == null) return const Scaffold(body: Center(child: Text('Please log in')));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('✓ To-Do List'),
@@ -82,17 +96,18 @@ class _ToDoListScreenState extends State<ToDoListScreen> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _todoRef.orderBy('createdAt', descending: true).snapshots(),
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: _firestoreService.getToolDataStream('todos'),
               builder: (context, snapshot) {
                 if (snapshot.hasError) return const Center(child: Text('Something went wrong'));
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = snapshot.data!.docs;
+                final data = snapshot.data?.data() as Map<String, dynamic>?;
+                final List<dynamic> todos = (data != null && data['data'] is List) ? data['data'] : [];
 
-                if (docs.isEmpty) {
+                if (todos.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -106,13 +121,14 @@ class _ToDoListScreenState extends State<ToDoListScreen> {
                 }
 
                 return ListView.builder(
-                  itemCount: docs.length,
+                  itemCount: todos.length,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final id = docs[index].id;
-                    final text = data['text'] ?? '';
-                    final completed = data['completed'] ?? false;
+                    // Show newest first if you prefer, or follow original order.
+                    // Web usually appends to the end, so index is index.
+                    final todo = todos[index] as Map<String, dynamic>;
+                    final text = todo['text'] ?? '';
+                    final completed = todo['completed'] ?? false;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -120,7 +136,7 @@ class _ToDoListScreenState extends State<ToDoListScreen> {
                       child: ListTile(
                         leading: Checkbox(
                           value: completed,
-                          onChanged: (_) => _toggleTodo(id, completed),
+                          onChanged: (_) => _toggleTodo(index),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                         ),
                         title: Text(
@@ -132,7 +148,7 @@ class _ToDoListScreenState extends State<ToDoListScreen> {
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          onPressed: () => _deleteTodo(id),
+                          onPressed: () => _deleteTodo(index),
                         ),
                       ),
                     );
