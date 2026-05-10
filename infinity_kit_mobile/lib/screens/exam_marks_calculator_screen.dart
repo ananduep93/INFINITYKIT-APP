@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 import '../utils/theme.dart';
 
 class ExamMarksCalculatorScreen extends StatefulWidget {
@@ -13,26 +15,69 @@ class SubjectMark {
   final TextEditingController obtainedController = TextEditingController();
   final TextEditingController totalController = TextEditingController();
 
-  SubjectMark() {
-    totalController.text = '100';
+  SubjectMark({String? name, String? obtained, String? total}) {
+    nameController.text = name ?? '';
+    obtainedController.text = obtained ?? '';
+    totalController.text = total ?? '100';
   }
+
+  Map<String, String> toJson() => {
+    'name': nameController.text,
+    'obtained': obtainedController.text,
+    'total': totalController.text,
+  };
 }
 
 class _ExamMarksCalculatorScreenState extends State<ExamMarksCalculatorScreen> {
   final List<SubjectMark> _subjects = [SubjectMark()];
+  final FirestoreService _firestoreService = FirestoreService();
+  final User? _user = FirebaseAuth.instance.currentUser;
+  
   double _totalObtained = 0;
   double _totalPossible = 0;
   double _percentage = 0;
   String _grade = '';
 
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final data = await _firestoreService.getToolData('examMarks');
+    if (data is List && data.isNotEmpty) {
+      setState(() {
+        _subjects.clear();
+        for (var item in data) {
+          final m = item as Map<String, dynamic>;
+          _subjects.add(SubjectMark(
+            name: m['name'],
+            obtained: m['obtained'],
+            total: m['total'],
+          ));
+        }
+        _calculate();
+      });
+    }
+  }
+
+  Future<void> _saveData() async {
+    if (_user == null) return;
+    final data = _subjects.map((s) => s.toJson()).toList();
+    await _firestoreService.saveToolData('examMarks', data);
+  }
+
   void _addSubject() {
     setState(() => _subjects.add(SubjectMark()));
+    _saveData();
   }
 
   void _removeSubject(int index) {
     if (_subjects.length > 1) {
       setState(() => _subjects.removeAt(index));
       _calculate();
+      _saveData();
     }
   }
 
@@ -113,9 +158,12 @@ class _ExamMarksCalculatorScreenState extends State<ExamMarksCalculatorScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _calculate,
+                    onPressed: () {
+                      _calculate();
+                      _saveData();
+                    },
                     style: ElevatedButton.styleFrom(minimumSize: const Size(0, 50)),
-                    child: const Text('Calculate'),
+                    child: const Text('Calculate & Save'),
                   ),
                 ),
               ],
@@ -141,6 +189,7 @@ class _ExamMarksCalculatorScreenState extends State<ExamMarksCalculatorScreen> {
                   child: TextField(
                     controller: s.nameController,
                     decoration: InputDecoration(hintText: 'Subject ${index + 1}', isDense: true),
+                    onChanged: (_) => _saveData(),
                   ),
                 ),
                 IconButton(
@@ -157,7 +206,10 @@ class _ExamMarksCalculatorScreenState extends State<ExamMarksCalculatorScreen> {
                     controller: s.obtainedController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Obtained', isDense: true, border: OutlineInputBorder()),
-                    onChanged: (_) => _calculate(),
+                    onChanged: (_) {
+                      _calculate();
+                      _saveData();
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -166,7 +218,10 @@ class _ExamMarksCalculatorScreenState extends State<ExamMarksCalculatorScreen> {
                     controller: s.totalController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Out Of', isDense: true, border: OutlineInputBorder()),
-                    onChanged: (_) => _calculate(),
+                    onChanged: (_) {
+                      _calculate();
+                      _saveData();
+                    },
                   ),
                 ),
               ],

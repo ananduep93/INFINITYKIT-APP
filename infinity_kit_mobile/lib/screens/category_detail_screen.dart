@@ -86,10 +86,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               ),
             );
           },
-          onTap: () async {
+        onTap: () {
           HapticFeedback.lightImpact();
-          await ToolDataService.addToRecent(tool.id);
-          if (!context.mounted) return;
+          // Do not await to avoid UI lag before navigation
+          ToolDataService.addToRecent(tool.id);
           ToolNavigation.navigateToTool(context, tool);
         },
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 
 class ReminderAlertScreen extends StatefulWidget {
   const ReminderAlertScreen({super.key});
@@ -10,10 +11,10 @@ class ReminderAlertScreen extends StatefulWidget {
 }
 
 class _ReminderAlertScreenState extends State<ReminderAlertScreen> {
+  final _firestoreService = FirestoreService();
   final _user = FirebaseAuth.instance.currentUser;
-  final _firestore = FirebaseFirestore.instance;
 
-  void _addReminder() {
+  Future<void> _addReminder() async {
     final titleController = TextEditingController();
     TimeOfDay selectedTime = TimeOfDay.now();
 
@@ -42,11 +43,16 @@ class _ReminderAlertScreenState extends State<ReminderAlertScreen> {
             TextButton(
               onPressed: () async {
                 if (titleController.text.isNotEmpty) {
-                  await _firestore.collection('users').doc(_user?.uid).collection('reminders').add({
+                  final currentData = await _firestoreService.getToolData('reminderAlerts');
+                  List<dynamic> alerts = (currentData is List) ? List.from(currentData) : [];
+
+                  alerts.add({
                     'title': titleController.text.trim(),
                     'time': '${selectedTime.hour}:${selectedTime.minute}',
-                    'createdAt': FieldValue.serverTimestamp(),
+                    'createdAt': DateTime.now().toIso8601String(),
                   });
+
+                  await _firestoreService.saveToolData('reminderAlerts', alerts);
                   if (context.mounted) Navigator.pop(context);
                 }
               },
@@ -58,27 +64,44 @@ class _ReminderAlertScreenState extends State<ReminderAlertScreen> {
     );
   }
 
+  Future<void> _deleteReminder(int index, List<dynamic> currentAlerts) async {
+    List<dynamic> alerts = List.from(currentAlerts);
+    alerts.removeAt(index);
+    await _firestoreService.saveToolData('reminderAlerts', alerts);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_user == null) return const Scaffold(body: Center(child: Text('Please log in')));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Reminder Alert')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore.collection('users').doc(_user?.uid).collection('reminders').orderBy('createdAt', descending: true).snapshots(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestoreService.getToolDataStream('reminderAlerts'),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
+          
+          final docData = snapshot.data?.data() as Map<String, dynamic>?;
+          final List<dynamic> alerts = (docData != null && docData['data'] is List) ? docData['data'] : [];
+
+          if (alerts.isEmpty) {
+            return const Center(child: Text('No alerts set.'));
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
+            itemCount: alerts.length,
             itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final alert = alerts[index] as Map<String, dynamic>;
               return Card(
                 child: ListTile(
                   leading: const Icon(Icons.notifications_active, color: Colors.orange),
-                  title: Text(data['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Time: ${data['time']}'),
-                  trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.grey), onPressed: () => doc.reference.delete()),
+                  title: Text(alert['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Time: ${alert['time']}'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.grey), 
+                    onPressed: () => _deleteReminder(index, alerts)
+                  ),
                 ),
               );
             },

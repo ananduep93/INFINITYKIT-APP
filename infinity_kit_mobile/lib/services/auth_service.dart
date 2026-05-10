@@ -30,15 +30,10 @@ class AuthService extends ChangeNotifier {
     try {
       await _firestore.syncUserData();
       
-      // Sync favorites to ToolDataService
-      final favorites = await _firestore.getFavorites();
-      await ToolDataService.syncFromCloud(favorites);
+      // Sync centralized settings (favorites, recent tools)
+      await ToolDataService.syncSettingsFromCloud();
       
-      // Sync history
-      final history = await _firestore.getHistory();
-      await ToolDataService.syncHistoryFromCloud(history);
-      
-      debugPrint('Firestore sync completed for ${user?.uid}');
+      debugPrint('Firestore settings sync completed for ${user?.uid}');
     } catch (e) {
       debugPrint('Firestore sync error: $e');
     }

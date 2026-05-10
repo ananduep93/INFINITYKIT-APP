@@ -85,19 +85,20 @@ class FirestoreService {
     return snapshot.docs.map((doc) => doc.id).toList();
   }
 
-  // History
-  Future<void> addToHistory(String toolId) async {
-    if (_auth.currentUser == null) return;
-    await historyColl.doc(toolId).set({
-      'toolId': toolId,
-      'lastAccessed': FieldValue.serverTimestamp(),
-    });
-  }
-
   Future<List<String>> getHistory() async {
     if (_auth.currentUser == null) return [];
     final snapshot = await historyColl.orderBy('lastAccessed', descending: true).limit(20).get();
     return snapshot.docs.map((doc) => doc.id).toList();
+  }
+
+  // App Settings Sync (Matching Web's infinityKitSettings)
+  Future<Map<String, dynamic>?> getSettings() async {
+    final data = await getToolData('infinityKitSettings');
+    return (data is Map) ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<void> saveSettings(Map<String, dynamic> settings) async {
+    await saveToolData('infinityKitSettings', settings);
   }
 
   // Profile

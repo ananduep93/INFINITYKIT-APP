@@ -27,46 +27,48 @@ class ToolDataService {
     final favoriteIds = tools.where((t) => t.isFavorite).map((t) => t.id).toList();
     await _prefs.setStringList('favorite_tool_ids', favoriteIds);
     
-    // Sync to Firestore
-    await _firestore.saveFavorite(toolId, tool.isFavorite);
-  }
-
-  static Future<void> syncFromCloud(List<String> cloudFavoriteIds) async {
-    final localFavoriteIds = _prefs.getStringList('favorite_tool_ids') ?? [];
-    
-    // Merge cloud and local
-    final mergedIds = {...localFavoriteIds, ...cloudFavoriteIds}.toList();
-    
-    for (var tool in tools) {
-      if (mergedIds.contains(tool.id)) {
-        tool.isFavorite = true;
-      } else {
-        tool.isFavorite = false;
-      }
-    }
-    
-    await _prefs.setStringList('favorite_tool_ids', mergedIds);
+    // Sync to centralized settings (fire and forget for smoothness)
+    _syncSettingsToCloud();
   }
 
   static Future<void> addToRecent(String toolId) async {
     List<String> recentIds = _prefs.getStringList('recent_tool_ids') ?? [];
-    recentIds.remove(toolId); // Remove if already exists to move to top
+    recentIds.remove(toolId);
     recentIds.insert(0, toolId);
-    if (recentIds.length > 20) recentIds = recentIds.sublist(0, 20); // Keep last 20
+    if (recentIds.length > 20) recentIds = recentIds.sublist(0, 20);
     await _prefs.setStringList('recent_tool_ids', recentIds);
     
-    // Sync to Firestore
-    await _firestore.addToHistory(toolId);
+    // Sync to centralized settings (fire and forget for smoothness)
+    _syncSettingsToCloud();
   }
 
-  static Future<void> syncHistoryFromCloud(List<String> cloudHistoryIds) async {
-    final localHistoryIds = _prefs.getStringList('recent_tool_ids') ?? [];
+  static Future<void> _syncSettingsToCloud() async {
+    final favorites = _prefs.getStringList('favorite_tool_ids') ?? [];
+    final recent = _prefs.getStringList('recent_tool_ids') ?? [];
     
-    // Merge and maintain order (cloud history is usually more recent)
-    final mergedIds = {...cloudHistoryIds, ...localHistoryIds}.toList();
-    if (mergedIds.length > 20) mergedIds.removeRange(20, mergedIds.length);
-    
-    await _prefs.setStringList('recent_tool_ids', mergedIds);
+    await _firestore.saveSettings({
+      'favorites': favorites,
+      'recentTools': recent,
+      'lastUpdated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> syncSettingsFromCloud() async {
+    final settings = await _firestore.getSettings();
+    if (settings == null) return;
+
+    if (settings['favorites'] is List) {
+      final List<String> favorites = List<String>.from(settings['favorites']);
+      await _prefs.setStringList('favorite_tool_ids', favorites);
+      for (var tool in tools) {
+        tool.isFavorite = favorites.contains(tool.id);
+      }
+    }
+
+    if (settings['recentTools'] is List) {
+      final List<String> recent = List<String>.from(settings['recentTools']);
+      await _prefs.setStringList('recent_tool_ids', recent);
+    }
   }
 
   static List<Tool> getRecentTools() {
@@ -80,7 +82,7 @@ class ToolDataService {
   static final List<ToolCategory> categories = [
     ToolCategory(id: 'daily-essentials', name: 'Daily Essentials', emoji: '🏠', toolIds: ['todolist', 'notes', 'timer']),
     ToolCategory(id: 'expense-tracker', name: 'Expense Tracker', emoji: '💸', toolIds: ['expenseadd', 'expenselist', 'categorysummary', 'report', 'budget', 'search-expense', 'reset-data', 'analytics', 'spending-insights', 'suggestions']),
-    ToolCategory(id: 'survey-hub', name: 'Survey Hub', emoji: '📈', toolIds: ['surveybuilder', 'mysurveys', 'publicsurvey', 'responseviewer']),
+    ToolCategory(id: 'survey-hub', name: 'Survey Hub', emoji: '📈', toolIds: ['surveybuilder', 'mysurveys', 'publicsurvey']),
     ToolCategory(id: 'utilities', name: 'Utilities', emoji: '🛠️', toolIds: ['unitconverter', 'passwordgen', 'passwordsaver', 'passwordstrength', 'randomnamepicker', 'usernamegen', 'clipboardcleaner']),
     ToolCategory(id: 'pdf-tools', name: 'PDF Tools', emoji: '📄', toolIds: ['imagetopdf', 'pdftoimage', 'mergepdf', 'rotatepdf']),
     ToolCategory(id: 'image-tools', name: 'Image Tools', emoji: '🖼️', toolIds: ['compressimage', 'imageinfo']),
@@ -118,7 +120,6 @@ class ToolDataService {
     Tool(id: 'surveybuilder', name: 'Survey Builder', icon: '🛠️', description: 'Create surveys', categoryId: 'survey-hub', isNative: true),
     Tool(id: 'mysurveys', name: 'My Surveys', icon: '📊', description: 'View your surveys', categoryId: 'survey-hub', isNative: true),
     Tool(id: 'publicsurvey', name: 'Public Survey', icon: '🌐', description: 'Fill a survey', categoryId: 'survey-hub', isNative: true),
-    Tool(id: 'responseviewer', name: 'Response Viewer', icon: '📈', description: 'View answers', categoryId: 'survey-hub', isNative: true),
 
     // Utilities
     Tool(id: 'unitconverter', name: 'Unit Converter', icon: '📏', description: 'Convert units', categoryId: 'utilities', isNative: true),

@@ -183,12 +183,11 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(tool.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(tool.description, maxLines: 1, overflow: TextOverflow.ellipsis),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.primaryColor),
-        onTap: () async {
+        onTap: () {
           HapticFeedback.lightImpact();
-          await ToolDataService.addToRecent(tool.id);
-          if (mounted) {
-            ToolNavigation.navigateToTool(context, tool);
-          }
+          // Do not await to avoid UI lag before navigation
+          ToolDataService.addToRecent(tool.id);
+          ToolNavigation.navigateToTool(context, tool);
         },
       ),
     );

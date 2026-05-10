@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AiService {
   static const String _textBaseUrl = 'https://text.pollinations.ai/';
@@ -52,7 +54,10 @@ class AiService {
       final response = await http.get(url).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200 && response.body.isNotEmpty) {
-        return response.body;
+        final result = response.body;
+        // Save to history (matching web logic)
+        _saveToHistory(type, message ?? text ?? prompt ?? "", result);
+        return result;
       } else {
         debugPrint('AI Status Error: ${response.statusCode} - ${response.body}');
         return null;
@@ -61,6 +66,36 @@ class AiService {
       debugPrint('AI Exception: $e');
       return null;
     }
+  }
+
+  static Future<void> _saveToHistory(String tool, String input, String output) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('ai_history').add({
+        'userId': user.uid,
+        'tool': tool,
+        'input': input,
+        'output': output,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error saving AI history: $e');
+    }
+  }
+
+  static Stream<QuerySnapshot> getHistory(String toolType) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Stream.empty();
+
+    return FirebaseFirestore.instance
+        .collection('ai_history')
+        .where('userId', isEqualTo: user.uid)
+        .where('tool', isEqualTo: toolType)
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
   }
 
   static String getImageUrl(String prompt) {

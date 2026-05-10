@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 
 class BudgetTrackerScreen extends StatefulWidget {
   const BudgetTrackerScreen({super.key});
@@ -11,16 +11,20 @@ class BudgetTrackerScreen extends StatefulWidget {
 
 class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
   final _budgetController = TextEditingController();
-  final _user = FirebaseAuth.instance.currentUser;
-  final _firestore = FirebaseFirestore.instance;
+  final _firestoreService = FirestoreService();
 
   Future<void> _saveBudget() async {
     if (_budgetController.text.isEmpty) return;
-    await _firestore.collection('users').doc(_user?.uid).update({
-      'monthlyBudget': double.parse(_budgetController.text),
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Budget Updated!')));
+    try {
+      final amount = double.parse(_budgetController.text);
+      await _firestoreService.saveToolData('budget', {'monthlyBudget': amount});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Budget Updated!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid amount')));
+      }
     }
   }
 
@@ -29,10 +33,11 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Budget Tracker')),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: _firestore.collection('users').doc(_user?.uid).snapshots(),
+        stream: _firestoreService.getToolDataStream('budget'),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          final docData = snapshot.data!.data() as Map<String, dynamic>?;
+          final data = docData?['data'] as Map<String, dynamic>?;
           final budget = data?['monthlyBudget']?.toDouble() ?? 0.0;
 
           return Padding(

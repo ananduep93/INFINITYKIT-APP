@@ -6,7 +6,7 @@ class SurveyService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static CollectionReference get _surveysRef =>
-      _db.collection('tools').doc('surveyHub').collection(_auth.currentUser?.uid ?? 'anonymous');
+      _db.collection('users').doc(_auth.currentUser?.uid ?? 'anonymous').collection('tools').doc('surveyHub').collection('surveys');
 
   static CollectionReference _responsesRef(String surveyId) =>
       _db.collection('tools').doc('surveyResponses').collection(surveyId);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firestore_service.dart';
 
 class MedicineReminderScreen extends StatefulWidget {
   const MedicineReminderScreen({super.key});
@@ -10,15 +11,10 @@ class MedicineReminderScreen extends StatefulWidget {
 }
 
 class _MedicineReminderScreenState extends State<MedicineReminderScreen> {
-  final _firestore = FirebaseFirestore.instance;
+  final _firestoreService = FirestoreService();
   final _user = FirebaseAuth.instance.currentUser;
 
-  CollectionReference get _remindersRef => _firestore
-      .collection('users')
-      .doc(_user?.uid)
-      .collection('medicines');
-
-  void _addReminder() {
+  Future<void> _addReminder() async {
     final nameController = TextEditingController();
     TimeOfDay selectedTime = TimeOfDay.now();
 
@@ -47,11 +43,16 @@ class _MedicineReminderScreenState extends State<MedicineReminderScreen> {
             TextButton(
               onPressed: () async {
                 if (nameController.text.isNotEmpty) {
-                  await _remindersRef.add({
+                  final currentData = await _firestoreService.getToolData('medicineReminders');
+                  List<dynamic> reminders = (currentData is List) ? List.from(currentData) : [];
+
+                  reminders.add({
                     'name': nameController.text.trim(),
                     'time': '${selectedTime.hour}:${selectedTime.minute}',
-                    'createdAt': FieldValue.serverTimestamp(),
+                    'createdAt': DateTime.now().toIso8601String(),
                   });
+
+                  await _firestoreService.saveToolData('medicineReminders', reminders);
                   if (context.mounted) Navigator.pop(context);
                 }
               },
@@ -63,27 +64,44 @@ class _MedicineReminderScreenState extends State<MedicineReminderScreen> {
     );
   }
 
+  Future<void> _deleteReminder(int index, List<dynamic> currentReminders) async {
+    List<dynamic> reminders = List.from(currentReminders);
+    reminders.removeAt(index);
+    await _firestoreService.saveToolData('medicineReminders', reminders);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_user == null) return const Scaffold(body: Center(child: Text('Please log in')));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Medicine Reminder')),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _remindersRef.orderBy('createdAt', descending: true).snapshots(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestoreService.getToolDataStream('medicineReminders'),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
+          
+          final docData = snapshot.data?.data() as Map<String, dynamic>?;
+          final List<dynamic> reminders = (docData != null && docData['data'] is List) ? docData['data'] : [];
+
+          if (reminders.isEmpty) {
+            return const Center(child: Text('No reminders set.'));
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
+            itemCount: reminders.length,
             itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final reminder = reminders[index] as Map<String, dynamic>;
               return Card(
                 child: ListTile(
                   leading: const Icon(Icons.medication, color: Colors.red),
-                  title: Text(data['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Reminder at ${data['time']}'),
-                  trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.grey), onPressed: () => doc.reference.delete()),
+                  title: Text(reminder['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Reminder at ${reminder['time']}'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.grey), 
+                    onPressed: () => _deleteReminder(index, reminders)
+                  ),
                 ),
               );
             },
